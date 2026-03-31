@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG Visualizer Web</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Cytoscape JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.26.0/cytoscape.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>RAG Visualizer</h1>
+                <p>OS Deadlock Detection</p>
+            </div>
+
+            <!-- Add Nodes -->
+            <div class="control-group">
+                <h3>Add Nodes</h3>
+                <div class="input-row">
+                    <input type="text" id="nodeId" placeholder="Node ID (e.g. P1, R1)" autocomplete="off">
+                </div>
+                <div class="button-row">
+                    <button id="btnAddProcess" class="btn btn-blue">Add Process</button>
+                    <button id="btnAddResource" class="btn btn-green">Add Resource</button>
+                </div>
+            </div>
+
+            <!-- Add Edges -->
+            <div class="control-group">
+                <h3>Add Edges</h3>
+                <div class="input-row split">
+                    <input type="text" id="edgeSource" placeholder="Source ID" autocomplete="off">
+                    <span style="color: #6b7280; font-weight: bold;">→</span>
+                    <input type="text" id="edgeTarget" placeholder="Target ID" autocomplete="off">
+                </div>
+                <div class="button-row">
+                    <button id="btnAddRequest" class="btn btn-purple" title="Process → Resource">Request Edge</button>
+                    <button id="btnAddAllocation" class="btn btn-yellow" title="Resource → Process">Allocation Edge</button>
+                </div>
+            </div>
+
+            <!-- Management Tools -->
+            <div class="control-group">
+                <h3>Management</h3>
+                <div class="input-row">
+                    <input type="text" id="removeId" placeholder="Node/Edge ID to Remove" autocomplete="off">
+                </div>
+                <button id="btnRemove" class="btn btn-gray w-full">Remove Element</button>
+                <div class="button-row mt-2">
+                    <button id="btnUndo" class="btn btn-gray-outline" disabled>Undo</button>
+                    <button id="btnRedo" class="btn btn-gray-outline" disabled>Redo</button>
+                </div>
+                <button id="btnReset" class="btn btn-gray-outline w-full mt-2">Reset Graph</button>
+            </div>
+
+            <!-- Deadlock Detection -->
+            <div class="control-group mt-auto">
+                <button id="btnCheckDeadlock" class="btn btn-red w-full lg-btn">Check Deadlock (DFS)</button>
+                <button id="btnExport" class="btn btn-gray-outline w-full mt-2">Export Image</button>
+            </div>
+        </aside>
+
+        <!-- Main Graph Area -->
+        <main class="graph-area">
+            <div id="cy"></div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
