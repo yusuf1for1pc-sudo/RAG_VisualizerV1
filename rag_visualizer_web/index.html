@@ -34,13 +34,11 @@
                 <p id="edgeModeHint" class="mt-2" style="display:none; font-size: 0.8rem; color: #9ca3af; margin-top: 0.5rem; line-height: 1.4;">Click a Source, then a Target.<br/>Process → Resource = Request<br/>Resource → Process = Allocation</p>
             </div>
 
-            <!-- Management Tools -->
+            <!-- Delete Tools -->
             <div class="control-group">
-                <h3>Management</h3>
-                <div class="input-row">
-                    <input type="text" id="removeId" placeholder="Node/Edge ID to Remove" autocomplete="off">
-                </div>
-                <button id="btnRemove" class="btn btn-gray w-full">Remove Element</button>
+                <h3>Delete Mode</h3>
+                <button id="btnDeleteMode" class="btn btn-red" style="width: 100%;">Toggle Delete Mode</button>
+                <p id="deleteModeHint" class="mt-2" style="display:none; font-size: 0.8rem; color: #9ca3af; margin-top: 0.5rem; line-height: 1.4;">Click any Node or Edge to delete it.</p>
                 <div class="button-row mt-2">
                     <button id="btnUndo" class="btn btn-gray-outline" disabled>Undo</button>
                     <button id="btnRedo" class="btn btn-gray-outline" disabled>Redo</button>

@@ -163,6 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let resourceCounter = 1;
     let edgeCounter = 1;
     let isEdgeMode = false;
+    let isDeleteMode = false;
     let selectedSourceNodeId = null;
 
     // Helper: Build Resource Matrix Label
@@ -271,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnEdgeMode').addEventListener('click', (e) => {
         isEdgeMode = !isEdgeMode;
         if (isEdgeMode) {
+            if (isDeleteMode) document.getElementById('btnDeleteMode').click(); // Turn off Delete
             e.target.classList.add('active');
             document.getElementById('edgeModeHint').style.display = 'block';
             showToast('Edge Mode Enabled. Click Source then Target node.', 'info');
@@ -285,9 +287,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Feature: Allow tapping graph elements to pre-fill the Remove ID box, or create edges
+    document.getElementById('btnDeleteMode').addEventListener('click', (e) => {
+        isDeleteMode = !isDeleteMode;
+        if (isDeleteMode) {
+            if (isEdgeMode) document.getElementById('btnEdgeMode').click(); // Turn off Edge
+            e.target.classList.add('active');
+            document.getElementById('deleteModeHint').style.display = 'block';
+            showToast('Delete Mode Enabled. Click any node or edge to remove it.', 'info');
+        } else {
+            e.target.classList.remove('active');
+            document.getElementById('deleteModeHint').style.display = 'none';
+            showToast('Delete Mode Disabled.', 'info');
+        }
+    });
+
+    // Feature: Allow tapping graph elements to delete them (if delete mode), or create edges
     cy.on('tap', 'node', function(evt){
         let ele = evt.target;
+        if (isDeleteMode) {
+            cy.remove(ele);
+            showToast(`Deleted ${ele.id()}`, 'success');
+            saveState();
+            return;
+        }
+
         if (isEdgeMode) {
             if (!selectedSourceNodeId) {
                 selectedSourceNodeId = ele.id();
@@ -344,48 +367,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 sourceNode.removeClass('selected-source');
                 selectedSourceNodeId = null;
             }
-        } else {
-            document.getElementById('removeId').value = ele.id();
-            showToast(`Selected ${ele.id()} for removal`, 'info');
         }
     });
 
     cy.on('tap', 'edge', function(evt){
-        if (!isEdgeMode) {
+        if (isDeleteMode) {
             const ele = evt.target;
-            document.getElementById('removeId').value = ele.id();
-            showToast(`Selected ${ele.id()} for removal`, 'info');
+            cy.remove(ele);
+            showToast(`Deleted edge`, 'success');
+            saveState();
         }
-    });
-
-    document.getElementById('btnRemove').addEventListener('click', () => {
-        const input = document.getElementById('removeId');
-        const id = input.value.trim().toUpperCase();
-
-        if (!id) return showToast('Please enter an ID to remove', 'error');
-
-        let elem = cy.getElementById(id);
-        
-        // Also allow removing edges by their visual label (e.g. E1)
-        if (elem.length === 0) {
-            const edgeByLabel = cy.edges().filter(ele => {
-                const label = ele.data('label');
-                return label && label.toUpperCase().includes(id);
-            });
-            if (edgeByLabel.length > 0) {
-                elem = edgeByLabel[0];
-            }
-        }
-
-        if (elem.length === 0) {
-            return showToast(`Element ${id} not found`, 'error');
-        }
-
-        const removedId = elem.id();
-        elem.remove();
-        input.value = '';
-        showToast(`Removed Element: ${removedId}`, 'info');
-        saveState();
     });
 
     document.getElementById('btnReset').addEventListener('click', () => {
