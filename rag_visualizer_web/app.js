@@ -510,25 +510,29 @@ document.addEventListener('DOMContentLoaded', () => {
     cy.on('mouseover', 'node.resource', function(evt){
         clearTimeout(hideHoverTimeout);
         hoveredResourceNode = evt.target;
-        const renderedPos = evt.renderedPosition;
         
         const cyContainer = document.getElementById('cy');
         const rect = cyContainer.getBoundingClientRect();
+        
+        // Use renderedBoundingBox for perfect visual alignment regardless of zoom/pan
+        const bb = hoveredResourceNode.renderedBoundingBox();
+        const nodeBottom = bb.y2;
+        const nodeCenterX = (bb.x1 + bb.x2) / 2;
 
-        hoverControls.style.display = 'flex';
-        hoverControls.style.left = (rect.left + renderedPos.x + 30) + 'px';
-        hoverControls.style.top = (rect.top + renderedPos.y - 20) + 'px';
+        hoverControls.classList.add('show');
+        hoverControls.style.left = (rect.left + nodeCenterX) + 'px';
+        hoverControls.style.top = (rect.top + nodeBottom + 8) + 'px'; // 8px gap below
     });
 
     cy.on('mouseout', 'node.resource', function(evt){
         hideHoverTimeout = setTimeout(() => {
-            hoverControls.style.display = 'none';
+            hoverControls.classList.remove('show');
         }, 300);
     });
 
     hoverControls.addEventListener('mouseenter', () => clearTimeout(hideHoverTimeout));
     hoverControls.addEventListener('mouseleave', () => {
-        hoverControls.style.display = 'none';
+        hoverControls.classList.remove('show');
     });
 
     document.getElementById('btnIncInst').addEventListener('click', () => {
