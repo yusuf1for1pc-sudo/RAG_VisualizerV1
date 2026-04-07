@@ -478,7 +478,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 3. Evaluate State
         if (unreducedProcesses.size > 0) {
             // DEADLOCK STATE
-            // Highlight unreduced processes and their related resources/edges
             unreducedProcesses.forEach(pId => {
                 const pNode = cy.getElementById(pId);
                 pNode.addClass('deadlock');
@@ -496,16 +495,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             showToast('❌ Deadlock Detected! Processes involved: ' + Array.from(unreducedProcesses).join(', '), 'error');
         } else {
-            // ALL PROCESSES REDUCED
-            const pendingRequests = cy.edges('.request').length;
-            
-            if (pendingRequests > 0) {
-                // UNSAFE STATE (Not deadlocked yet, but has pending requests and could deadlock)
-                showToast('⚠ System is in Unsafe State.\nDeadlock may occur in future.', 'warning');
-            } else {
-                // SAFE STATE
-                showToast('✔ System is in Safe State.\nAll processes can complete.', 'success');
-            }
+            // ALL PROCESSES REDUCED = SAFE STATE
+            showToast('✔ System is in Safe State.\nAll processes can complete.', 'success');
         }
     };
 
