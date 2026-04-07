@@ -156,6 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }).run();
     };
 
+    // --- GLOBAL VARIABLES ---
+    let processCounter = 1;
+    let resourceCounter = 1;
+    let edgeCounter = 1;
+    let isEdgeMode = false;
+    let selectedSourceNodeId = null;
+
     // --- HISTORY TRACKING (UNDO/REDO) ---
     let historyStack = [];
     let historyIndex = -1;
@@ -203,54 +210,32 @@ document.addEventListener('DOMContentLoaded', () => {
     saveState();
 
     const handleAddNodeProcess = () => {
-        const input = document.getElementById('processCount');
-        const num = Math.floor(Number(input.value.trim()));
-
-        if (isNaN(num) || num <= 0) return showToast('Please enter a valid Process number', 'error');
-
-        const currentId = 'P' + num;
-        if (cy.getElementById(currentId).length > 0) {
-            return showToast(`Process ${currentId} already exists!`, 'error');
-        }
-
+        const currentId = 'P' + processCounter;
+        
         cy.add({
             group: 'nodes',
             data: { id: currentId, label: currentId },
             classes: 'process'
         });
 
-        input.value = ''; // Clear input
+        processCounter++;
         showToast(`Added Process node: ${currentId}`, 'success');
         reLayout();
         saveState();
     };
 
     const handleAddNodeResource = () => {
-        const inputNum = document.getElementById('resourceCount');
-        const inputInst = document.getElementById('resourceInstances');
-        const num = Math.floor(Number(inputNum.value.trim()));
-        let instances = Math.floor(Number(inputInst.value.trim()));
-
-        if (isNaN(instances) || instances <= 0) instances = 1;
-
-        if (isNaN(num) || num <= 0) return showToast('Please enter a valid Resource number', 'error');
-
-        const currentId = 'R' + num;
-        if (cy.getElementById(currentId).length > 0) {
-            return showToast(`Resource ${currentId} already exists!`, 'error');
-        }
-
-        const displayLabel = instances > 1 ? `${currentId} (${instances})` : currentId;
+        const currentId = 'R' + resourceCounter;
+        const instances = 1;
 
         cy.add({
             group: 'nodes',
-            data: { id: currentId, label: displayLabel, instances: instances },
+            data: { id: currentId, label: currentId, instances: instances },
             classes: 'resource'
         });
 
-        inputNum.value = ''; // Clear input
-        inputInst.value = '';
-        showToast(`Added Resource node: ${currentId} (${instances} instance${instances > 1 ? 's' : ''})`, 'success');
+        resourceCounter++;
+        showToast(`Added Resource node: ${currentId}`, 'success');
         reLayout();
         saveState();
     };
@@ -260,64 +245,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EDGE OPERATIONS ---
 
-    const handleExecuteEdge = () => {
-        const sourceInput = document.getElementById('edgeSource');
-        const targetInput = document.getElementById('edgeTarget');
-        const sourceId = sourceInput.value.trim().toUpperCase();
-        const targetId = targetInput.value.trim().toUpperCase();
+    document.getElementById('btnEdgeMode').addEventListener('click', (e) => {
+        isEdgeMode = !isEdgeMode;
+        if (isEdgeMode) {
+            e.target.classList.add('active');
+            document.getElementById('edgeModeHint').style.display = 'block';
+            showToast('Edge Mode Enabled. Click Source then Target node.', 'info');
+        } else {
+            e.target.classList.remove('active');
+            document.getElementById('edgeModeHint').style.display = 'none';
+            if (selectedSourceNodeId) {
+                cy.getElementById(selectedSourceNodeId).removeClass('selected-source');
+                selectedSourceNodeId = null;
+            }
+            showToast('Edge Mode Disabled.', 'info');
+        }
+    });
 
-        if (!sourceId || !targetId) return showToast('Source and Target IDs required', 'error');
+    // Feature: Allow tapping graph elements to pre-fill the Remove ID box, or create edges
+    cy.on('tap', 'node', function(evt){
+        let ele = evt.target;
+        if (isEdgeMode) {
+            if (!selectedSourceNodeId) {
+                selectedSourceNodeId = ele.id();
+                ele.addClass('selected-source');
+                showToast(`Selected Source: ${ele.data('label')}`, 'info');
+            } else {
+                let sourceNode = cy.getElementById(selectedSourceNodeId);
+                let targetNode = ele;
+                
+                if (sourceNode.id() === targetNode.id()) {
+                    showToast('Cannot connect node to itself', 'error');
+                    sourceNode.removeClass('selected-source');
+                    selectedSourceNodeId = null;
+                    return;
+                }
 
-        const sourceNode = cy.getElementById(sourceId);
-        const targetNode = cy.getElementById(targetId);
+                let typeClass = '';
+                if (sourceNode.hasClass('process') && targetNode.hasClass('resource')) {
+                    typeClass = 'request';
+                } else if (sourceNode.hasClass('resource') && targetNode.hasClass('process')) {
+                    typeClass = 'allocation';
+                    
+                    const instances = sourceNode.data('instances') || 1;
+                    const currentAllocations = sourceNode.outgoers('edge.allocation').length;
+                    if (currentAllocations >= instances) {
+                        showToast(`Resource ${sourceNode.data('label')} has no free instances! (Max: ${instances})`, 'error');
+                        sourceNode.removeClass('selected-source');
+                        selectedSourceNodeId = null;
+                        return;
+                    }
+                } else {
+                     showToast('Invalid Edge: Must link Process to Resource or vice versa', 'error');
+                     sourceNode.removeClass('selected-source');
+                     selectedSourceNodeId = null;
+                     return;
+                }
 
-        if (sourceNode.length === 0) return showToast(`Source Node ${sourceId} not found`, 'error');
-        if (targetNode.length === 0) return showToast(`Target Node ${targetId} not found`, 'error');
+                const edgeId = `${sourceNode.id()}-${targetNode.id()}`;
+                const edgeLabel = `E${edgeCounter} (${typeClass === 'request' ? 'Req' : 'Alloc'})`;
+                
+                if (cy.getElementById(edgeId).length > 0) {
+                    showToast('Edge already exists!', 'error');
+                } else {
+                    cy.add({
+                        group: 'edges',
+                        data: { id: edgeId, source: sourceNode.id(), target: targetNode.id(), label: edgeLabel },
+                        classes: typeClass
+                    });
+                    edgeCounter++;
+                    showToast(`Added ${typeClass} edge: ${sourceNode.data('label')} → ${targetNode.data('label')}`, 'success');
+                    saveState();
+                }
 
-        let typeClass = '';
-        if (sourceNode.hasClass('process') && targetNode.hasClass('resource')) {
-            typeClass = 'request';
-        } else if (sourceNode.hasClass('resource') && targetNode.hasClass('process')) {
-            typeClass = 'allocation';
-            
-            const instances = sourceNode.data('instances') || 1;
-            const currentAllocations = sourceNode.outgoers('edge.allocation').length;
-            if (currentAllocations >= instances) {
-                return showToast(`Resource ${sourceNode.id()} has no free instances! (Max: ${instances})`, 'error');
+                sourceNode.removeClass('selected-source');
+                selectedSourceNodeId = null;
             }
         } else {
-             return showToast('Invalid Edge: Must link a Process and a Resource', 'error');
+            document.getElementById('removeId').value = ele.id();
+            showToast(`Selected ${ele.id()} for removal`, 'info');
         }
+    });
 
-        const edgeId = `${sourceId}-${targetId}`;
-        const edgeNameCount = cy.edges().length + 1;
-        const edgeLabel = `E${edgeNameCount} (${typeClass === 'request' ? 'Req' : 'Alloc'})`;
-        
-        if (cy.getElementById(edgeId).length > 0) {
-            return showToast('Edge already exists!', 'error');
+    cy.on('tap', 'edge', function(evt){
+        if (!isEdgeMode) {
+            const ele = evt.target;
+            document.getElementById('removeId').value = ele.id();
+            showToast(`Selected ${ele.id()} for removal`, 'info');
         }
-
-        cy.add({
-            group: 'edges',
-            data: { id: edgeId, source: sourceId, target: targetId, label: edgeLabel },
-            classes: typeClass
-        });
-
-        sourceInput.value = ''; targetInput.value = '';
-        showToast(`Added ${typeClass} edge: ${sourceId} → ${targetId}`, 'success');
-        reLayout();
-        saveState();
-    };
-
-    document.getElementById('btnExecuteEdge').addEventListener('click', handleExecuteEdge);
-
-    // --- MANAGEMENT ---
-
-    // Feature: Allow tapping graph elements to pre-fill the Remove ID box
-    cy.on('tap', 'node, edge', function(evt){
-        const ele = evt.target;
-        document.getElementById('removeId').value = ele.id();
-        showToast(`Selected ${ele.id()} for removal`, 'info');
     });
 
     document.getElementById('btnRemove').addEventListener('click', () => {
@@ -470,5 +485,153 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     document.getElementById('btnCheckDeadlock').addEventListener('click', checkDeadlock);
+
+    // --- HOVER CONTROLS FOR RESOURCES (INSTANCES) ---
+    let hoveredResourceNode = null;
+    let hideHoverTimeout = null;
+    const hoverControls = document.getElementById('resourceHoverControls');
+
+    cy.on('mouseover', 'node.resource', function(evt){
+        clearTimeout(hideHoverTimeout);
+        hoveredResourceNode = evt.target;
+        const renderedPos = evt.renderedPosition;
+        
+        const cyContainer = document.getElementById('cy');
+        const rect = cyContainer.getBoundingClientRect();
+
+        hoverControls.style.display = 'flex';
+        hoverControls.style.left = (rect.left + renderedPos.x + 30) + 'px';
+        hoverControls.style.top = (rect.top + renderedPos.y - 20) + 'px';
+    });
+
+    cy.on('mouseout', 'node.resource', function(evt){
+        hideHoverTimeout = setTimeout(() => {
+            hoverControls.style.display = 'none';
+        }, 300);
+    });
+
+    hoverControls.addEventListener('mouseenter', () => clearTimeout(hideHoverTimeout));
+    hoverControls.addEventListener('mouseleave', () => {
+        hoverControls.style.display = 'none';
+    });
+
+    document.getElementById('btnIncInst').addEventListener('click', () => {
+        if (!hoveredResourceNode) return;
+        let inst = (hoveredResourceNode.data('instances') || 1) + 1;
+        hoveredResourceNode.data('instances', inst);
+        
+        let currentLabel = hoveredResourceNode.data('label');
+        let baseName = currentLabel.includes('(') ? currentLabel.split('(')[0].trim() : currentLabel;
+        hoveredResourceNode.data('label', `${baseName} (${inst})`);
+    });
+
+    document.getElementById('btnDecInst').addEventListener('click', () => {
+        if (!hoveredResourceNode) return;
+        let inst = hoveredResourceNode.data('instances') || 1;
+        if (inst > 1) {
+            inst--;
+            hoveredResourceNode.data('instances', inst);
+            
+            let currentLabel = hoveredResourceNode.data('label');
+            let baseName = currentLabel.includes('(') ? currentLabel.split('(')[0].trim() : currentLabel;
+            hoveredResourceNode.data('label', inst > 1 ? `${baseName} (${inst})` : baseName);
+        }
+    });
+
+    // --- NODE RENAMING MECHANISM (DOUBLE TAP) ---
+    const renameUI = document.getElementById('nodeRenameUI');
+    const renameInput = document.getElementById('nodeRenameInput');
+    const renameError = document.getElementById('nodeRenameError');
+    let editingNode = null;
+
+    cy.on('dblclick dbltap', 'node', function(evt) {
+        editingNode = evt.target;
+        
+        const cyContainer = document.getElementById('cy');
+        const rect = cyContainer.getBoundingClientRect();
+        const renderedPos = evt.renderedPosition;
+
+        let currentLabel = editingNode.data('label');
+        if (editingNode.hasClass('resource') && currentLabel.includes('(')) {
+            currentLabel = currentLabel.split('(')[0].trim();
+        }
+
+        renameInput.value = currentLabel;
+        renameInput.classList.remove('error');
+        renameError.style.display = 'none';
+
+        renameUI.style.display = 'flex';
+        renameUI.style.left = (rect.left + renderedPos.x - 50) + 'px';
+        renameUI.style.top = (rect.top + renderedPos.y + 40) + 'px';
+        
+        setTimeout(() => renameInput.focus(), 50);
+    });
+
+    const commitRename = () => {
+        if (!editingNode) return;
+        const newName = renameInput.value.trim();
+        
+        if (!newName) {
+            cancelRename();
+            return;
+        }
+
+        const currentLabel = editingNode.data('label');
+        const currentBaseName = currentLabel.includes('(') ? currentLabel.split('(')[0].trim() : currentLabel;
+
+        if (newName === currentBaseName) {
+            cancelRename();
+            return;
+        }
+
+        let isDuplicate = false;
+        cy.nodes().forEach(n => {
+            if (n.id() !== editingNode.id()) {
+                let nLabel = n.data('label');
+                let nBase = nLabel.includes('(') ? nLabel.split('(')[0].trim() : nLabel;
+                if (nBase.toLowerCase() === newName.toLowerCase()) {
+                    isDuplicate = true;
+                }
+            }
+        });
+
+        if (isDuplicate) {
+            renameInput.classList.add('error');
+            renameError.style.display = 'block';
+            return; 
+        }
+
+        let displayLabel = newName;
+        if (editingNode.hasClass('resource')) {
+            const inst = editingNode.data('instances') || 1;
+            if (inst > 1) displayLabel = `${newName} (${inst})`;
+        }
+
+        editingNode.data('label', displayLabel);
+        saveState();
+        cancelRename();
+    };
+
+    const cancelRename = () => {
+        renameUI.style.display = 'none';
+        editingNode = null;
+    };
+
+    renameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') commitRename();
+        if (e.key === 'Escape') cancelRename();
+    });
+
+    document.addEventListener('pointerdown', (e) => {
+        if (editingNode && !renameUI.contains(e.target) && e.target.tagName !== 'CANVAS') {
+           commitRename();
+        }
+    });
+
+    cy.on('tap', function(evt){
+        if (editingNode && evt.target === cy) {
+            commitRename();
+        }
+    });
 
 });

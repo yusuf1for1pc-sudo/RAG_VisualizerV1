@@ -23,30 +23,15 @@
             <!-- Add Nodes -->
             <div class="control-group">
                 <h3>Add Nodes</h3>
-                <div class="input-row split">
-                    <input type="number" id="processCount" placeholder="Process Num (e.g. 3 for P3)" min="1" autocomplete="off">
-                    <button id="btnAddProcess" class="btn btn-blue">Add</button>
-                </div>
-                <div class="input-row mt-2">
-                    <input type="number" id="resourceCount" placeholder="Resource Num (e.g. 2 for R2)" min="1" autocomplete="off">
-                </div>
-                <div class="input-row split mt-2">
-                    <input type="number" id="resourceInstances" placeholder="Instances (def: 1)" min="1" autocomplete="off">
-                    <button id="btnAddResource" class="btn btn-green">Add Resource</button>
-                </div>
+                <button id="btnAddProcess" class="btn btn-blue w-full mb-2">Add Process</button>
+                <button id="btnAddResource" class="btn btn-green w-full">Add Resource</button>
             </div>
 
             <!-- Add Edges -->
             <div class="control-group">
-                <h3>Add Edges</h3>
-                <div class="input-row split">
-                    <input type="text" id="edgeSource" placeholder="Source ID" autocomplete="off">
-                    <span style="color: #6b7280; font-weight: bold;">→</span>
-                    <input type="text" id="edgeTarget" placeholder="Target ID" autocomplete="off">
-                </div>
-                <div class="button-row">
-                    <button id="btnExecuteEdge" class="btn btn-purple" style="width: 100%;">Execute</button>
-                </div>
+                <h3>Edge Creation Mode</h3>
+                <button id="btnEdgeMode" class="btn btn-purple" style="width: 100%;">Toggle Edge Mode</button>
+                <p id="edgeModeHint" class="mt-2" style="display:none; font-size: 0.8rem; color: #9ca3af; margin-top: 0.5rem; line-height: 1.4;">Click a Source, then a Target.<br/>Process → Resource = Request<br/>Resource → Process = Allocation</p>
             </div>
 
             <!-- Management Tools -->
@@ -78,6 +63,17 @@
 
     <!-- Toast Notifications -->
     <div id="toast-container"></div>
+    
+    <!-- Floating UIs -->
+    <div id="resourceHoverControls" style="display: none; position: absolute; z-index: 100; gap: 5px; flex-direction: column;">
+        <button id="btnIncInst">+</button>
+        <button id="btnDecInst">-</button>
+    </div>
+    
+    <div id="nodeRenameUI" style="display: none; position: absolute; z-index: 105; background: #1e293b; padding: 5px; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+        <input type="text" id="nodeRenameInput" autocomplete="off" style="width: 100px; padding: 4px;" />
+        <div id="nodeRenameError" style="display: none; color: #ef4444; font-size: 10px; margin-top: 4px;">Name already exists</div>
+    </div>
 
     <script src="app.js"></script>
 </body>

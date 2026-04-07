@@ -275,3 +275,69 @@ input[type="number"]:focus {
 @keyframes slideOut {
     to { transform: translateX(120%); opacity: 0; }
 }
+
+/* Floating UIs */
+#resourceHoverControls {
+    background: rgba(15, 23, 42, 0.9);
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+}
+
+#resourceHoverControls button {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s, background 0.2s;
+}
+
+#resourceHoverControls button:hover {
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    transform: scale(1.1);
+}
+
+#resourceHoverControls button:active {
+    transform: scale(0.95);
+}
+
+/* Edge Mode Active State */
+#btnEdgeMode.active {
+    background: linear-gradient(135deg, #c026d3, #9333ea);
+    box-shadow: 0 0 15px rgba(192, 38, 211, 0.6);
+    border: 2px solid #e879f9;
+}
+
+/* Rename UI */
+#nodeRenameUI {
+    display: flex;
+    flex-direction: column;
+}
+
+#nodeRenameInput {
+    border: 2px solid #3b82f6;
+    background: #0f172a;
+    color: white;
+    outline: none;
+}
+
+#nodeRenameInput.error {
+    border-color: #ef4444;
+}
+
+/* Highlight Selected Node during Edge Creation */
+.selected-source {
+    border-color: #fcd34d !important;
+    border-width: 4px !important;
+    box-shadow: 0 0 20px rgba(252, 211, 77, 0.8) !important;
+}
