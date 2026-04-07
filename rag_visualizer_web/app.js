@@ -385,6 +385,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnReset').addEventListener('click', () => {
         if (confirm('Are you sure you want to clear the entire graph?')) {
             cy.elements().remove();
+            processCounter = 1;
+            resourceCounter = 1;
+            edgeCounter = 1;
             showToast('Graph reset successfully.', 'info');
             saveState();
         }
