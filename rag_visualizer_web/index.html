@@ -23,11 +23,15 @@
             <!-- Add Nodes -->
             <div class="control-group">
                 <h3>Add Nodes</h3>
-                <div class="input-row">
-                    <input type="text" id="nodeId" placeholder="Node ID (e.g. P1, R1)" autocomplete="off">
+                <div class="input-row split">
+                    <input type="number" id="processCount" placeholder="Process Num (e.g. 3 for P3)" min="1" autocomplete="off">
+                    <button id="btnAddProcess" class="btn btn-blue">Add</button>
                 </div>
-                <div class="button-row">
-                    <button id="btnAddProcess" class="btn btn-blue">Add Process</button>
+                <div class="input-row mt-2">
+                    <input type="number" id="resourceCount" placeholder="Resource Num (e.g. 2 for R2)" min="1" autocomplete="off">
+                </div>
+                <div class="input-row split mt-2">
+                    <input type="number" id="resourceInstances" placeholder="Instances (def: 1)" min="1" autocomplete="off">
                     <button id="btnAddResource" class="btn btn-green">Add Resource</button>
                 </div>
             </div>
@@ -41,8 +45,7 @@
                     <input type="text" id="edgeTarget" placeholder="Target ID" autocomplete="off">
                 </div>
                 <div class="button-row">
-                    <button id="btnAddRequest" class="btn btn-purple" title="Process → Resource">Request Edge</button>
-                    <button id="btnAddAllocation" class="btn btn-yellow" title="Resource → Process">Allocation Edge</button>
+                    <button id="btnExecuteEdge" class="btn btn-purple" style="width: 100%;">Execute</button>
                 </div>
             </div>
 

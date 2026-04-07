@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 style: {
                     'shape': 'ellipse',
                     'background-color': '#3b82f6',
-                    'label': 'data(id)',
+                    'label': 'data(label)',
                     'color': '#ffffff',
                     'text-valign': 'center',
                     'text-halign': 'center',
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 style: {
                     'shape': 'round-rectangle',
                     'background-color': '#10b981',
-                    'label': 'data(id)',
+                    'label': 'data(label)',
                     'color': '#ffffff',
                     'text-valign': 'center',
                     'text-halign': 'center',
@@ -58,6 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     'target-arrow-shape': 'triangle',
                     'curve-style': 'bezier',
                     'arrow-scale': 1.5,
+                    'label': 'data(label)',
+                    'font-size': '12px',
+                    'color': '#cbd5e1',
+                    'text-outline-color': '#1f2937',
+                    'text-outline-width': 2,
+                    'text-rotation': 'autorotate'
                 }
             },
             // Edge specific classes (can be overridden, mostly visual metadata)
@@ -196,37 +202,65 @@ document.addEventListener('DOMContentLoaded', () => {
     // Save initial empty state
     saveState();
 
-    // --- NODE OPERATIONS ---
+    const handleAddNodeProcess = () => {
+        const input = document.getElementById('processCount');
+        const num = Math.floor(Number(input.value.trim()));
 
-    const handleAddNode = (typeClass) => {
-        const input = document.getElementById('nodeId');
-        const id = input.value.trim().toUpperCase();
+        if (isNaN(num) || num <= 0) return showToast('Please enter a valid Process number', 'error');
 
-        if (!id) return showToast('Please enter a Node ID', 'error');
-
-        // Check duplicates
-        if (cy.getElementById(id).length > 0) {
-            return showToast(`Node ${id} already exists!`, 'error');
+        const currentId = 'P' + num;
+        if (cy.getElementById(currentId).length > 0) {
+            return showToast(`Process ${currentId} already exists!`, 'error');
         }
 
         cy.add({
             group: 'nodes',
-            data: { id: id },
-            classes: typeClass
+            data: { id: currentId, label: currentId },
+            classes: 'process'
         });
 
         input.value = ''; // Clear input
-        showToast(`Added ${typeClass} node: ${id}`, 'success');
+        showToast(`Added Process node: ${currentId}`, 'success');
         reLayout();
         saveState();
     };
 
-    document.getElementById('btnAddProcess').addEventListener('click', () => handleAddNode('process'));
-    document.getElementById('btnAddResource').addEventListener('click', () => handleAddNode('resource'));
+    const handleAddNodeResource = () => {
+        const inputNum = document.getElementById('resourceCount');
+        const inputInst = document.getElementById('resourceInstances');
+        const num = Math.floor(Number(inputNum.value.trim()));
+        let instances = Math.floor(Number(inputInst.value.trim()));
+
+        if (isNaN(instances) || instances <= 0) instances = 1;
+
+        if (isNaN(num) || num <= 0) return showToast('Please enter a valid Resource number', 'error');
+
+        const currentId = 'R' + num;
+        if (cy.getElementById(currentId).length > 0) {
+            return showToast(`Resource ${currentId} already exists!`, 'error');
+        }
+
+        const displayLabel = instances > 1 ? `${currentId} (${instances})` : currentId;
+
+        cy.add({
+            group: 'nodes',
+            data: { id: currentId, label: displayLabel, instances: instances },
+            classes: 'resource'
+        });
+
+        inputNum.value = ''; // Clear input
+        inputInst.value = '';
+        showToast(`Added Resource node: ${currentId} (${instances} instance${instances > 1 ? 's' : ''})`, 'success');
+        reLayout();
+        saveState();
+    };
+
+    document.getElementById('btnAddProcess').addEventListener('click', handleAddNodeProcess);
+    document.getElementById('btnAddResource').addEventListener('click', handleAddNodeResource);
 
     // --- EDGE OPERATIONS ---
 
-    const handleAddEdge = (typeClass) => {
+    const handleExecuteEdge = () => {
         const sourceInput = document.getElementById('edgeSource');
         const targetInput = document.getElementById('edgeTarget');
         const sourceId = sourceInput.value.trim().toUpperCase();
@@ -240,18 +274,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sourceNode.length === 0) return showToast(`Source Node ${sourceId} not found`, 'error');
         if (targetNode.length === 0) return showToast(`Target Node ${targetId} not found`, 'error');
 
-        // Validation mapping based on Request (P->R) or Allocation (R->P)
-        if (typeClass === 'request') {
-            if (!sourceNode.hasClass('process') || !targetNode.hasClass('resource')) {
-                return showToast('Request Edge must be Process → Resource', 'error');
+        let typeClass = '';
+        if (sourceNode.hasClass('process') && targetNode.hasClass('resource')) {
+            typeClass = 'request';
+        } else if (sourceNode.hasClass('resource') && targetNode.hasClass('process')) {
+            typeClass = 'allocation';
+            
+            const instances = sourceNode.data('instances') || 1;
+            const currentAllocations = sourceNode.outgoers('edge.allocation').length;
+            if (currentAllocations >= instances) {
+                return showToast(`Resource ${sourceNode.id()} has no free instances! (Max: ${instances})`, 'error');
             }
-        } else if (typeClass === 'allocation') {
-            if (!sourceNode.hasClass('resource') || !targetNode.hasClass('process')) {
-                return showToast('Allocation Edge must be Resource → Process', 'error');
-            }
+        } else {
+             return showToast('Invalid Edge: Must link a Process and a Resource', 'error');
         }
 
         const edgeId = `${sourceId}-${targetId}`;
+        const edgeNameCount = cy.edges().length + 1;
+        const edgeLabel = `E${edgeNameCount} (${typeClass === 'request' ? 'Req' : 'Alloc'})`;
         
         if (cy.getElementById(edgeId).length > 0) {
             return showToast('Edge already exists!', 'error');
@@ -259,7 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         cy.add({
             group: 'edges',
-            data: { id: edgeId, source: sourceId, target: targetId },
+            data: { id: edgeId, source: sourceId, target: targetId, label: edgeLabel },
             classes: typeClass
         });
 
@@ -269,10 +309,16 @@ document.addEventListener('DOMContentLoaded', () => {
         saveState();
     };
 
-    document.getElementById('btnAddRequest').addEventListener('click', () => handleAddEdge('request'));
-    document.getElementById('btnAddAllocation').addEventListener('click', () => handleAddEdge('allocation'));
+    document.getElementById('btnExecuteEdge').addEventListener('click', handleExecuteEdge);
 
     // --- MANAGEMENT ---
+
+    // Feature: Allow tapping graph elements to pre-fill the Remove ID box
+    cy.on('tap', 'node, edge', function(evt){
+        const ele = evt.target;
+        document.getElementById('removeId').value = ele.id();
+        showToast(`Selected ${ele.id()} for removal`, 'info');
+    });
 
     document.getElementById('btnRemove').addEventListener('click', () => {
         const input = document.getElementById('removeId');
@@ -280,14 +326,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!id) return showToast('Please enter an ID to remove', 'error');
 
-        const elem = cy.getElementById(id);
+        let elem = cy.getElementById(id);
+        
+        // Also allow removing edges by their visual label (e.g. E1)
+        if (elem.length === 0) {
+            const edgeByLabel = cy.edges().filter(ele => {
+                const label = ele.data('label');
+                return label && label.toUpperCase().includes(id);
+            });
+            if (edgeByLabel.length > 0) {
+                elem = edgeByLabel[0];
+            }
+        }
+
         if (elem.length === 0) {
             return showToast(`Element ${id} not found`, 'error');
         }
 
+        const removedId = elem.id();
         elem.remove();
         input.value = '';
-        showToast(`Removed ID: ${id}`, 'info');
+        showToast(`Removed Element: ${removedId}`, 'info');
         saveState();
     });
 
