@@ -272,15 +272,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- EDGE OPERATIONS ---
 
-    document.getElementById('btnEdgeMode').addEventListener('click', (e) => {
+    document.getElementById('btnEdgeMode').addEventListener('click', () => {
         isEdgeMode = !isEdgeMode;
         if (isEdgeMode) {
             if (isDeleteMode) document.getElementById('btnDeleteMode').click(); // Turn off Delete
-            e.target.classList.add('active');
+            document.getElementById('btnEdgeMode').classList.add('active-purple');
             document.getElementById('edgeModeHint').style.display = 'block';
             showToast('Edge Mode Enabled. Click Source then Target node.', 'info');
         } else {
-            e.target.classList.remove('active');
+            document.getElementById('btnEdgeMode').classList.remove('active-purple');
             document.getElementById('edgeModeHint').style.display = 'none';
             if (selectedSourceNodeId) {
                 cy.getElementById(selectedSourceNodeId).removeClass('selected-source');
@@ -290,15 +290,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('btnDeleteMode').addEventListener('click', (e) => {
+    document.getElementById('btnDeleteMode').addEventListener('click', () => {
         isDeleteMode = !isDeleteMode;
         if (isDeleteMode) {
             if (isEdgeMode) document.getElementById('btnEdgeMode').click(); // Turn off Edge
-            e.target.classList.add('active');
+            document.getElementById('btnDeleteMode').classList.add('active-red');
             document.getElementById('deleteModeHint').style.display = 'block';
             showToast('Delete Mode Enabled. Click any node or edge to remove it.', 'info');
         } else {
-            e.target.classList.remove('active');
+            document.getElementById('btnDeleteMode').classList.remove('active-red');
             document.getElementById('deleteModeHint').style.display = 'none';
             showToast('Delete Mode Disabled.', 'info');
         }
