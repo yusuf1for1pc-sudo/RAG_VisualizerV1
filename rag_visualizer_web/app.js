@@ -41,8 +41,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     'text-outline-width': 2,
                     'border-color': '#059669',
                     'border-width': 2,
-                    'width': '60px',
-                    'height': '60px',
+                    'width': '90px',
+                    'height': '90px',
+                    'text-wrap': 'wrap',
+                    'line-height': 1.1,
                     'shadow-blur': 15,
                     'shadow-color': '#000',
                     'shadow-opacity': 0.5
@@ -163,6 +165,22 @@ document.addEventListener('DOMContentLoaded', () => {
     let isEdgeMode = false;
     let selectedSourceNodeId = null;
 
+    // Helper: Build Resource Matrix Label
+    const buildResourceLabel = (name, instances) => {
+        let dots = [];
+        const maxCols = 3; 
+        let currentLine = [];
+        for(let i=0; i < instances; i++) {
+            currentLine.push('●');
+            if(currentLine.length === maxCols) {
+                dots.push(currentLine.join(' ')); // Space between dots
+                currentLine = [];
+            }
+        }
+        if (currentLine.length > 0) dots.push(currentLine.join(' '));
+        return `${name}\n\n${dots.join('\n')}`;
+    };
+
     // --- HISTORY TRACKING (UNDO/REDO) ---
     let historyStack = [];
     let historyIndex = -1;
@@ -230,7 +248,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         cy.add({
             group: 'nodes',
-            data: { id: currentId, label: currentId, instances: instances },
+            data: { 
+                id: currentId, 
+                resourceName: currentId,
+                instances: instances,
+                label: buildResourceLabel(currentId, instances)
+            },
             classes: 'resource'
         });
 
@@ -520,9 +543,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let inst = (hoveredResourceNode.data('instances') || 1) + 1;
         hoveredResourceNode.data('instances', inst);
         
-        let currentLabel = hoveredResourceNode.data('label');
-        let baseName = currentLabel.includes('(') ? currentLabel.split('(')[0].trim() : currentLabel;
-        hoveredResourceNode.data('label', `${baseName} (${inst})`);
+        let rn = hoveredResourceNode.data('resourceName') || hoveredResourceNode.id();
+        hoveredResourceNode.data('label', buildResourceLabel(rn, inst));
     });
 
     document.getElementById('btnDecInst').addEventListener('click', () => {
@@ -532,9 +554,8 @@ document.addEventListener('DOMContentLoaded', () => {
             inst--;
             hoveredResourceNode.data('instances', inst);
             
-            let currentLabel = hoveredResourceNode.data('label');
-            let baseName = currentLabel.includes('(') ? currentLabel.split('(')[0].trim() : currentLabel;
-            hoveredResourceNode.data('label', inst > 1 ? `${baseName} (${inst})` : baseName);
+            let rn = hoveredResourceNode.data('resourceName') || hoveredResourceNode.id();
+            hoveredResourceNode.data('label', buildResourceLabel(rn, inst));
         }
     });
 
@@ -552,8 +573,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const renderedPos = evt.renderedPosition;
 
         let currentLabel = editingNode.data('label');
-        if (editingNode.hasClass('resource') && currentLabel.includes('(')) {
-            currentLabel = currentLabel.split('(')[0].trim();
+        if (editingNode.hasClass('resource')) {
+            currentLabel = editingNode.data('resourceName') || editingNode.id();
         }
 
         renameInput.value = currentLabel;
@@ -577,7 +598,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const currentLabel = editingNode.data('label');
-        const currentBaseName = currentLabel.includes('(') ? currentLabel.split('(')[0].trim() : currentLabel;
+        let currentBaseName = currentLabel;
+        if (editingNode.hasClass('resource')) {
+            currentBaseName = editingNode.data('resourceName') || editingNode.id();
+        }
 
         if (newName === currentBaseName) {
             cancelRename();
@@ -587,8 +611,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let isDuplicate = false;
         cy.nodes().forEach(n => {
             if (n.id() !== editingNode.id()) {
-                let nLabel = n.data('label');
-                let nBase = nLabel.includes('(') ? nLabel.split('(')[0].trim() : nLabel;
+                let nBase = n.data('label');
+                if (n.hasClass('resource')) nBase = n.data('resourceName') || n.id();
                 if (nBase.toLowerCase() === newName.toLowerCase()) {
                     isDuplicate = true;
                 }
@@ -601,13 +625,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return; 
         }
 
-        let displayLabel = newName;
         if (editingNode.hasClass('resource')) {
             const inst = editingNode.data('instances') || 1;
-            if (inst > 1) displayLabel = `${newName} (${inst})`;
+            editingNode.data('resourceName', newName); // store cleanly
+            editingNode.data('label', buildResourceLabel(newName, inst));
+        } else {
+            editingNode.data('label', newName);
         }
 
-        editingNode.data('label', displayLabel);
         saveState();
         cancelRename();
     };
