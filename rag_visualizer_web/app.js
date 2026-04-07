@@ -113,8 +113,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         
-        // Add basic icon
-        const icon = type === 'error' ? '⚠' : (type === 'success' ? '✅' : 'ℹ');
+        let icon = 'ℹ';
+        if (type === 'error') icon = '❌';
+        else if (type === 'success') icon = '✔';
+        else if (type === 'warning') icon = '⚠';
+
         toast.innerHTML = `<span>${icon}</span> <span>${message}</span>`;
         
         container.appendChild(toast);
@@ -406,95 +409,103 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- DEADLOCK DETECTION (DFS CYCLE ALGORITHM) ---
+    // --- DEADLOCK DETECTION (GRAPH REDUCTION ALGORITHM) ---
 
-    // A recursive DFS function running specifically on the Cytoscape collection
     const checkDeadlock = () => {
         // Clear old highlights visually
         cy.elements().removeClass('deadlock');
 
         const nodes = cy.nodes();
-        if (nodes.length === 0) {
+        const processes = cy.nodes('.process');
+        const resources = cy.nodes('.resource');
+
+        if (processes.length === 0 && resources.length === 0) {
             return showToast('Graph is empty. No deadlock.', 'info');
         }
 
-        let visited = new Set();
-        let recursionStack = new Set();
-        let parentMap = new Map();
-        let cycleDetected = null; // Will store the violating node if found
+        // 1. Initialize State
+        let availableMap = new Map(); // resourceId -> available instances
+        resources.forEach(r => {
+            const instances = r.data('instances') || 1;
+            const allocations = r.outgoers('edge.allocation').length;
+            availableMap.set(r.id(), instances - allocations);
+        });
 
-        const dfs = (currentNodeId) => {
-            visited.add(currentNodeId);
-            recursionStack.add(currentNodeId);
+        let reducedProcesses = new Set();
+        let unreducedProcesses = new Set(processes.map(p => p.id()));
 
-            const currentNode = cy.getElementById(currentNodeId);
-            const outgoingEdges = currentNode.outgoers('edge'); // Only directed edges OUT
+        // 2. Reduction Loop
+        let reducedInThisIteration = true;
+        while (reducedInThisIteration) {
+            reducedInThisIteration = false;
 
-            for(let i=0; i < outgoingEdges.length; i++) {
-                const edge = outgoingEdges[i];
-                const neighborNode = edge.target();
-                const neighborId = neighborNode.id();
+            for (let pId of unreducedProcesses) {
+                const processNode = cy.getElementById(pId);
+                const requests = processNode.outgoers('edge.request');
+                
+                // Count how many instances of each resource this process requests
+                let reqCounts = new Map(); // resId -> count
+                requests.forEach(edge => {
+                    const resId = edge.target().id();
+                    reqCounts.set(resId, (reqCounts.get(resId) || 0) + 1);
+                });
 
-                if (!visited.has(neighborId)) {
-                    parentMap.set(neighborId, { parent: currentNodeId, edgeId: edge.id() });
-                    if (dfs(neighborId)) {
-                        return true;
+                // Check if all requests can be satisfied
+                let canBeSatisfied = true;
+                for (let [resId, count] of reqCounts) {
+                    if ((availableMap.get(resId) || 0) < count) {
+                        canBeSatisfied = false;
+                        break;
                     }
-                } else if (recursionStack.has(neighborId)) {
-                    // We hit a node currently in the DFS recursion stack = BACK EDGE = CYCLE
-                    cycleDetected = {
-                        startOfCycle: neighborId,
-                        endOfCycle: currentNodeId,
-                        closingEdgeId: edge.id()
-                    };
-                    return true;
                 }
-            }
 
-            recursionStack.delete(currentNodeId);
-            return false;
-        };
+                if (canBeSatisfied) {
+                    // Simulate Completion
+                    reducedProcesses.add(pId);
+                    unreducedProcesses.delete(pId);
+                    reducedInThisIteration = true;
 
-        let hasDeadlock = false;
-
-        // Run DFS from all unvisited nodes
-        // (because the graph might have multiple disconnected components)
-        for (let i = 0; i < nodes.length; i++) {
-            const startId = nodes[i].id();
-            if (!visited.has(startId)) {
-                if (dfs(startId)) {
-                    hasDeadlock = true;
-                    break;
+                    // Release resources held by this process
+                    const allocations = processNode.incomers('edge.allocation');
+                    allocations.forEach(edge => {
+                        const resId = edge.source().id();
+                        availableMap.set(resId, (availableMap.get(resId) || 0) + 1);
+                    });
                 }
             }
         }
 
-        if (hasDeadlock && cycleDetected) {
-            console.log("Deadlock trace:", cycleDetected);
-            
-            // Highlight the backward closing edge
-            cy.getElementById(cycleDetected.closingEdgeId).addClass('deadlock');
-
-            // Trace back via parentMap to highlight all elements in the loop
-            let curr = cycleDetected.endOfCycle;
-            while (curr && curr !== cycleDetected.startOfCycle) {
-                cy.getElementById(curr).addClass('deadlock'); // Node
+        // 3. Evaluate State
+        if (unreducedProcesses.size > 0) {
+            // DEADLOCK STATE
+            // Highlight unreduced processes and their related resources/edges
+            unreducedProcesses.forEach(pId => {
+                const pNode = cy.getElementById(pId);
+                pNode.addClass('deadlock');
                 
-                const connectionInfo = parentMap.get(curr);
-                if (connectionInfo) {
-                    cy.getElementById(connectionInfo.edgeId).addClass('deadlock'); // Edge
-                    curr = connectionInfo.parent; // Move backwards
-                } else {
-                    break;
-                }
-            }
-            
-            // Finally highlight the starting node of cycle
-            cy.getElementById(cycleDetected.startOfCycle).addClass('deadlock');
+                pNode.outgoers('edge.request').forEach(edge => {
+                    edge.addClass('deadlock');
+                    edge.target().addClass('deadlock');
+                });
+                
+                pNode.incomers('edge.allocation').forEach(edge => {
+                    edge.addClass('deadlock');
+                    edge.source().addClass('deadlock');
+                });
+            });
 
-            showToast('⚠ DEADLOCK DETECTED! Cycle highlighted in red.', 'error');
+            showToast('❌ Deadlock Detected! Processes involved: ' + Array.from(unreducedProcesses).join(', '), 'error');
         } else {
-            showToast('✅ System is Safe. No Deadlock.', 'success');
+            // ALL PROCESSES REDUCED
+            const pendingRequests = cy.edges('.request').length;
+            
+            if (pendingRequests > 0) {
+                // UNSAFE STATE (Not deadlocked yet, but has pending requests and could deadlock)
+                showToast('⚠ System is in Unsafe State.\nDeadlock may occur in future.', 'warning');
+            } else {
+                // SAFE STATE
+                showToast('✔ System is in Safe State.\nAll processes can complete.', 'success');
+            }
         }
     };
 
